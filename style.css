@@ -25,6 +25,28 @@ body {
   flex-direction: column;
 }
 
+/* Media Queries for Responsive Design */
+@media screen and (max-width: 768px) {
+  body {
+    overflow: auto;
+  }
+
+  .container {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .agents-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .main-area {
+    height: calc(100vh - 200px);
+  }
+}
+
 .sidebar-header {
   padding: 24px 20px;
   background: linear-gradient(135deg, #FFB13B 0%, #FFA000 100%);
@@ -383,6 +405,56 @@ body {
   border-top: 1px solid #e8e8e8;
   background: #fafafa;
   border-radius: 0 0 12px 12px;
+}
+
+/* Additional Media Queries for smaller screens */
+@media screen and (max-width: 480px) {
+  .main-header {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+
+  .compose-btn {
+    width: 100%;
+  }
+
+  .agent-item {
+    margin: 4px 5px;
+    padding: 12px 10px;
+  }
+
+  .agent-icon {
+    width: 35px;
+    height: 35px;
+    font-size: 14px;
+  }
+
+  .compose-form {
+    height: calc(100vh - 100px);
+  }
+
+  .compose-footer {
+    flex-direction: column;
+  }
+
+  .send-btn, .autofill-btn {
+    width: 100%;
+  }
+
+  .email-message {
+    padding: 16px;
+  }
+
+  .formatting-toolbar {
+    overflow-x: auto;
+    padding: 8px;
+  }
+
+  .toolbar-btn {
+    width: 28px;
+    height: 28px;
+  }
 }
 
 .send-btn {
