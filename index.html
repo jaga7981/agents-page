@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSP Agents - Email Interface</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <div class="container">
+    <!-- Left Sidebar - Agents List -->
+    <div class="agents-sidebar">
+      <div class="sidebar-header">CSP Agents</div>
+      <div class="agents-list" id="agentsList">
+        <div class="agent-item active" data-agent="vendor">
+          <div class="agent-icon">V</div>
+          <div class="agent-info">
+            <div class="agent-name">Vendor</div>
+          </div>
+        </div>
+        <div class="agent-item" data-agent="customs">
+          <div class="agent-icon">C</div>
+          <div class="agent-info">
+            <div class="agent-name">Customs Broker</div>
+          </div>
+        </div>
+        <div class="agent-item" data-agent="warehouse">
+          <div class="agent-icon">W</div>
+          <div class="agent-info">
+            <div class="agent-name">Warehouse Owners</div>
+          </div>
+        </div>
+        <div class="agent-item" data-agent="port">
+          <div class="agent-icon">P</div>
+          <div class="agent-info">
+            <div class="agent-name">Port Owners</div>
+          </div>
+        </div>
+        <div class="agent-item" data-agent="account">
+          <div class="agent-icon">A</div>
+          <div class="agent-info">
+            <div class="agent-name">Account Manager</div>
+          </div>
+        </div>
+        <div class="agent-item" data-agent="retail">
+          <div class="agent-icon">R</div>
+          <div class="agent-info">
+            <div class="agent-name">Retail Bots</div>
+          </div>
+        </div>
+        <div class="agent-item" data-agent="influencer">
+          <div class="agent-icon">I</div>
+          <div class="agent-info">
+            <div class="agent-name">Influencer</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Main Area -->
+    <div class="main-area">
+      <div class="main-header">
+        <h2 id="headerTitle">Vendor - Inbox</h2>
+        <button class="compose-btn" id="composeBtn">+ Compose</button>
+      </div>
+
+      <div class="main-content">
+        <!-- Inbox View -->
+        <div class="inbox-view active" id="inboxView">
+          <div class="empty-state">
+            <div class="empty-state-icon">📧</div>
+            <h3>No messages yet</h3>
+            <p>Click "Compose" to start a conversation</p>
+          </div>
+        </div>
+
+        <!-- Thread View -->
+        <div class="thread-view" id="threadView">
+          <button class="back-btn" id="backToInbox">← Back to Inbox</button>
+          <div id="threadContent"></div>
+        </div>
+
+        <!-- Compose View -->
+        <div class="compose-view" id="composeView">
+          <button class="back-btn" id="backFromCompose">← Back</button>
+          <div class="compose-form">
+            <div class="compose-header">
+              <div class="compose-field">
+                <span class="field-label">To</span>
+                <input type="email" id="toEmail" readonly>
+              </div>
+              <div class="compose-field">
+                <span class="field-label">Cc</span>
+                <input type="email" id="ccEmail" placeholder="Add Cc (optional)">
+              </div>
+              <div class="compose-field">
+                <span class="field-label">Subject</span>
+                <input type="text" id="subjectInput" placeholder="Add a subject">
+              </div>
+            </div>
+
+            <div class="formatting-toolbar">
+              <div class="toolbar-group">
+                <button class="toolbar-btn" title="Undo" id="undoBtn">↶</button>
+                <button class="toolbar-btn" title="Redo" id="redoBtn">↷</button>
+              </div>
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group">
+                <button class="toolbar-btn" title="Bold" id="boldBtn"><b>B</b></button>
+                <button class="toolbar-btn" title="Italic" id="italicBtn"><i>I</i></button>
+                <button class="toolbar-btn" title="Underline" id="underlineBtn"><u>U</u></button>
+                <button class="toolbar-btn" title="Strikethrough" id="strikeBtn"><s>S</s></button>
+              </div>
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group">
+                <button class="toolbar-btn" title="Bullet List" id="bulletBtn">•</button>
+                <button class="toolbar-btn" title="Numbered List" id="numberBtn">1.</button>
+              </div>
+            </div>
+
+            <div class="compose-body">
+              <div contenteditable="true" class="message-editor" id="messageBody"
+                placeholder="Type your message here..."></div>
+            </div>
+
+            <div class="compose-footer">
+              <button class="send-btn" id="sendBtn">Send</button>
+              <button class="autofill-btn" id="autofillBtn">Autofill Message</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>

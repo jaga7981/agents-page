@@ -1,0 +1,13 @@
+{
+  "name": "csp-agents",
+  "version": "1.0.0",
+  "description": "CSP Multi-Agent Email Interface",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python -m http.server 8000",
+    "start": "python -m http.server 8000"
+  },
+  "keywords": ["agents", "email", "n8n", "ai"],
+  "author": "Your Name",
+  "license": "MIT"
+}
