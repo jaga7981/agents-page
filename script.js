@@ -3,7 +3,7 @@ const AGENT_CONFIG = {
   vendor: {
     name: "Vendor",
     email: "vendor@merlion.com",
-    webhook: "https://n8n.jagadeesh.shop/webhook/vendor-agent",
+    webhook: "https://n8n.jagadeesh.shop/webhook/agent-vendor",
   },
   customs: {
     name: "Customs Broker",
