@@ -97,6 +97,14 @@ sendBtn.addEventListener("click", async () => {
   sendBtn.disabled = true;
   sendBtn.textContent = "Sending...";
 
+  // Generate or get session ID
+  let sessionId = localStorage.getItem("csp_session_id");
+  if (!sessionId) {
+    sessionId =
+      "user_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem("csp_session_id", sessionId);
+  }
+
   try {
     const response = await fetch(AGENT_CONFIG[currentAgent].webhook, {
       method: "POST",
@@ -106,6 +114,7 @@ sendBtn.addEventListener("click", async () => {
         to: AGENT_CONFIG[currentAgent].email,
         subject: subject,
         message: body,
+        session_id: sessionId, // NEW: Add session ID
       }),
     });
 
@@ -275,6 +284,14 @@ async function sendReply(originalSubject) {
     return;
   }
 
+  // Get session ID
+  let sessionId = localStorage.getItem("csp_session_id");
+  if (!sessionId) {
+    sessionId =
+      "user_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem("csp_session_id", sessionId);
+  }
+
   try {
     const response = await fetch(AGENT_CONFIG[currentAgent].webhook, {
       method: "POST",
@@ -284,6 +301,7 @@ async function sendReply(originalSubject) {
         to: AGENT_CONFIG[currentAgent].email,
         subject: "Re: " + originalSubject,
         message: replyText,
+        session_id: sessionId, // NEW: Add session ID
       }),
     });
 
