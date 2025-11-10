@@ -25,6 +25,69 @@ body {
   flex-direction: column;
 }
 
+/* Agent Search */
+.agent-search-container {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.agent-search-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.3s;
+}
+
+.agent-search-input:focus {
+  border-color: #FFB13B;
+  box-shadow: 0 0 0 3px rgba(255, 177, 59, 0.1);
+}
+
+/* Email Count Badge */
+.email-count {
+  display: inline-block;
+  background: #FFB13B;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+/* Thread Actions */
+.thread-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+  gap: 8px;
+}
+
+.download-btn {
+  padding: 8px 16px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.download-btn:hover {
+  background: #45a049;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
 /* Media Queries for Responsive Design */
 @media screen and (max-width: 768px) {
   body {
