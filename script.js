@@ -41,13 +41,14 @@ const AGENT_CONFIG = {
 let currentAgent = "vendor";
 let currentView = "inbox";
 let conversations = {};
+let openedThreads = new Set();
 
 // Initialize conversations for each agent
 Object.keys(AGENT_CONFIG).forEach((agent) => {
   conversations[agent] = {};
 });
 
-// Generate NEW session ID on every page load (fresh session)
+// Generate NEW session ID on every page load
 const SESSION_ID =
   "session_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
 
@@ -66,12 +67,41 @@ const subjectInput = document.getElementById("subjectInput");
 const messageBody = document.getElementById("messageBody");
 const threadContent = document.getElementById("threadContent");
 const agentSearch = document.getElementById("agentSearch");
+const downloadAllBtn = document.getElementById("downloadAllBtn");
 
 // Initialize
 toEmail.value = AGENT_CONFIG[currentAgent].email;
 updateHeaderTitle();
 
-// Agent Search Functionality
+// Toast Notification System
+function showToast(title, message, type = "info") {
+  const toastContainer = document.getElementById("toastContainer");
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+
+  const icons = {
+    success: "✅",
+    error: "❌",
+    info: "📧",
+  };
+
+  toast.innerHTML = `
+    <div class="toast-icon">${icons[type]}</div>
+    <div class="toast-content">
+      <div class="toast-title">${title}</div>
+      <div class="toast-message">${message}</div>
+    </div>
+  `;
+
+  toastContainer.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.animation = "slideOut 0.3s ease";
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+// Agent Search
 if (agentSearch) {
   agentSearch.addEventListener("input", (e) => {
     const searchTerm = e.target.value.toLowerCase();
@@ -106,19 +136,62 @@ composeBtn.addEventListener("click", showComposeView);
 backToInbox.addEventListener("click", showInboxView);
 backFromCompose.addEventListener("click", showInboxView);
 
-// Send Email
+// Download All
+downloadAllBtn.addEventListener("click", () => {
+  downloadAllConversations();
+});
+
+// Send Email - Create NEW conversation every time
 sendBtn.addEventListener("click", async () => {
   const subject = subjectInput.value.trim();
   const body = messageBody.textContent.trim();
 
   if (!subject || !body) {
-    alert("Please fill in both subject and message");
+    showToast(
+      "Missing Information",
+      "Please fill in both subject and message",
+      "error"
+    );
     return;
   }
 
-  sendBtn.disabled = true;
-  sendBtn.textContent = "Sending...";
+  // Create UNIQUE thread ID for each new conversation (using timestamp)
+  const threadId = "thread_" + Date.now();
 
+  // Create NEW thread
+  conversations[currentAgent][threadId] = {
+    subject: subject,
+    messages: [],
+    unread: 0,
+  };
+
+  // Add user message
+  const userMessage = {
+    id: Date.now(),
+    from: "student@mokabura.com",
+    to: AGENT_CONFIG[currentAgent].email,
+    body: body,
+    date: new Date().toISOString(),
+    isUser: true,
+  };
+  conversations[currentAgent][threadId].messages.push(userMessage);
+
+  // Clear form
+  subjectInput.value = "";
+  messageBody.innerHTML = "";
+
+  // Show inbox immediately
+  showInboxView();
+  renderInbox();
+
+  showToast("Sending", "Your message is being sent...", "info");
+
+  // Send to n8n in background
+  sendToAgent(subject, body, threadId);
+});
+
+// Background sending
+async function sendToAgent(subject, body, threadId) {
   try {
     const response = await fetch(AGENT_CONFIG[currentAgent].webhook, {
       method: "POST",
@@ -136,32 +209,7 @@ sendBtn.addEventListener("click", async () => {
 
     const data = await response.json();
 
-    // Create thread ID from subject
-    const threadId = subject
-      .replace(/^(Re:\s*)*/, "")
-      .toLowerCase()
-      .replace(/\s+/g, "_");
-
-    // Initialize thread if doesn't exist
-    if (!conversations[currentAgent][threadId]) {
-      conversations[currentAgent][threadId] = {
-        subject: subject,
-        messages: [],
-      };
-    }
-
-    // Add user message
-    const userMessage = {
-      id: Date.now(),
-      from: "student@mokabura.com",
-      to: AGENT_CONFIG[currentAgent].email,
-      body: body,
-      date: new Date().toISOString(),
-      isUser: true,
-    };
-    conversations[currentAgent][threadId].messages.push(userMessage);
-
-    // Add agent reply
+    // Add agent reply to SAME thread
     const agentReply = {
       id: Date.now() + 1,
       from: AGENT_CONFIG[currentAgent].email,
@@ -172,21 +220,26 @@ sendBtn.addEventListener("click", async () => {
     };
     conversations[currentAgent][threadId].messages.push(agentReply);
 
-    // Clear form
-    subjectInput.value = "";
-    messageBody.innerHTML = "";
+    // Increment unread if not opened
+    if (!openedThreads.has(threadId)) {
+      conversations[currentAgent][threadId].unread++;
+    }
 
-    showInboxView();
     renderInbox();
-    alert("Email sent successfully!");
+    showToast(
+      "Message Received",
+      `${AGENT_CONFIG[currentAgent].name} has replied`,
+      "success"
+    );
   } catch (error) {
     console.error("Error:", error);
-    alert("Failed to send email. Please try again.");
-  } finally {
-    sendBtn.disabled = false;
-    sendBtn.textContent = "Send";
+    showToast(
+      "Send Failed",
+      "Failed to send message. Please try again.",
+      "error"
+    );
   }
-});
+}
 
 // Functions
 function updateHeaderTitle() {
@@ -212,8 +265,18 @@ function showThreadView(threadId) {
   inboxView.classList.remove("active");
   threadView.classList.add("active");
   composeView.classList.remove("active");
+
+  // Mark as opened and clear unread count
+  openedThreads.add(threadId);
+  if (conversations[currentAgent][threadId]) {
+    conversations[currentAgent][threadId].unread = 0;
+  }
+
   updateHeaderTitle();
   renderThread(threadId);
+
+  // Re-render inbox to remove badge
+  renderInbox();
 }
 
 function showComposeView() {
@@ -239,21 +302,41 @@ function renderInbox() {
     return;
   }
 
-  inboxView.innerHTML = threadKeys
+  // Sort threads by latest message date (newest first)
+  const sortedThreads = threadKeys.sort((a, b) => {
+    const lastMsgA =
+      agentThreads[a].messages[agentThreads[a].messages.length - 1];
+    const lastMsgB =
+      agentThreads[b].messages[agentThreads[b].messages.length - 1];
+    return new Date(lastMsgB.date) - new Date(lastMsgA.date);
+  });
+
+  // Each thread shows as separate conversation box
+  inboxView.innerHTML = sortedThreads
     .map((threadId) => {
       const thread = agentThreads[threadId];
-      const lastMessage = thread.messages[thread.messages.length - 1];
+      const firstMessage = thread.messages.find((m) => m.isUser);
+      if (!firstMessage) return "";
+
+      const unreadBadge =
+        thread.unread > 0
+          ? `<span class="unread-badge">${thread.unread} new</span>`
+          : "";
+
       return `
     <div class="email-list-item" onclick="showThreadView('${threadId}')">
-      <div class="email-subject">${thread.subject}</div>
-      <div class="email-preview">${lastMessage.body.substring(0, 100)}...</div>
+      <div class="email-subject">
+        ${thread.subject}
+        ${unreadBadge}
+      </div>
+      <div class="email-preview">${firstMessage.body.substring(0, 100)}...</div>
       <div class="email-date">${new Date(
-        lastMessage.date
+        firstMessage.date
       ).toLocaleString()}</div>
-      <div class="email-count">${thread.messages.length} messages</div>
     </div>
   `;
     })
+    .filter((html) => html !== "")
     .join("");
 }
 
@@ -295,6 +378,9 @@ function renderThread(threadId) {
     <div class="thread-actions">
       <button class="download-btn" onclick="downloadThread('${threadId}')">📥 Download Thread</button>
     </div>
+    <div class="email-subject-detail" style="font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #202124;">
+      ${thread.subject}
+    </div>
     ${emailThreadHTML}
     <div class="reply-box">
       <textarea id="replyText" placeholder="Type your reply..."></textarea>
@@ -307,11 +393,31 @@ async function sendReply(threadId) {
   const replyText = document.getElementById("replyText").value.trim();
 
   if (!replyText) {
-    alert("Please type a reply");
+    showToast("Empty Reply", "Please type a reply", "error");
     return;
   }
 
   const thread = conversations[currentAgent][threadId];
+
+  // Add user reply to THIS thread
+  const userReply = {
+    id: Date.now(),
+    from: "student@mokabura.com",
+    to: AGENT_CONFIG[currentAgent].email,
+    body: replyText,
+    date: new Date().toISOString(),
+    isUser: true,
+  };
+  thread.messages.push(userReply);
+
+  renderThread(threadId);
+
+  setTimeout(() => {
+    const threadContainer = document.getElementById("threadContent");
+    threadContainer.scrollTop = threadContainer.scrollHeight;
+  }, 100);
+
+  showToast("Sending Reply", "Your reply is being sent...", "info");
 
   try {
     const response = await fetch(AGENT_CONFIG[currentAgent].webhook, {
@@ -330,18 +436,7 @@ async function sendReply(threadId) {
 
     const data = await response.json();
 
-    // Add user reply to thread
-    const userReply = {
-      id: Date.now(),
-      from: "student@mokabura.com",
-      to: AGENT_CONFIG[currentAgent].email,
-      body: replyText,
-      date: new Date().toISOString(),
-      isUser: true,
-    };
-    thread.messages.push(userReply);
-
-    // Add agent reply to thread
+    // Add agent reply to THIS thread
     const agentReply = {
       id: Date.now() + 1,
       from: AGENT_CONFIG[currentAgent].email,
@@ -352,21 +447,29 @@ async function sendReply(threadId) {
     };
     thread.messages.push(agentReply);
 
-    // Re-render the thread view
     renderThread(threadId);
 
-    // Scroll to bottom
-    const threadContainer = document.getElementById("threadContent");
-    threadContainer.scrollTop = threadContainer.scrollHeight;
+    setTimeout(() => {
+      const threadContainer = document.getElementById("threadContent");
+      threadContainer.scrollTop = threadContainer.scrollHeight;
+    }, 100);
 
-    alert("Reply sent successfully!");
+    showToast(
+      "Reply Received",
+      `${AGENT_CONFIG[currentAgent].name} has replied`,
+      "success"
+    );
   } catch (error) {
     console.error("Error:", error);
-    alert("Failed to send reply. Please try again.");
+    showToast(
+      "Reply Failed",
+      "Failed to send reply. Please try again.",
+      "error"
+    );
   }
 }
 
-// Download Thread Function
+// Download Single Thread
 function downloadThread(threadId) {
   const thread = conversations[currentAgent][threadId];
   if (!thread) return;
@@ -385,31 +488,80 @@ function downloadThread(threadId) {
     content += `\n${"-".repeat(60)}\n\n`;
   });
 
+  downloadFile(
+    content,
+    `conversation_${
+      AGENT_CONFIG[currentAgent].name
+    }_${threadId}_${Date.now()}.txt`
+  );
+  showToast("Downloaded", "Conversation downloaded successfully", "success");
+}
+
+// Download All
+function downloadAllConversations() {
+  const agentThreads = conversations[currentAgent];
+  const threadKeys = Object.keys(agentThreads);
+
+  if (threadKeys.length === 0) {
+    showToast("No Conversations", "No conversations to download", "error");
+    return;
+  }
+
+  let content = `All Conversations with ${AGENT_CONFIG[currentAgent].name}\n`;
+  content += `Downloaded: ${new Date().toLocaleString()}\n`;
+  content += `Total Threads: ${threadKeys.length}\n`;
+  content += `\n${"=".repeat(80)}\n\n`;
+
+  threadKeys.forEach((threadId, threadIndex) => {
+    const thread = agentThreads[threadId];
+
+    content += `\n${"#".repeat(80)}\n`;
+    content += `THREAD ${threadIndex + 1}: ${thread.subject}\n`;
+    content += `${"#".repeat(80)}\n\n`;
+
+    thread.messages.forEach((msg, msgIndex) => {
+      const sender = msg.isUser ? "You" : AGENT_CONFIG[currentAgent].name;
+      content += `Message ${msgIndex + 1} - ${sender}\n`;
+      content += `Date: ${new Date(msg.date).toLocaleString()}\n`;
+      content += `To: ${msg.to}\n`;
+      content += `\n${msg.body}\n`;
+      content += `\n${"-".repeat(60)}\n\n`;
+    });
+  });
+
+  downloadFile(
+    content,
+    `all_conversations_${AGENT_CONFIG[currentAgent].name}_${Date.now()}.txt`
+  );
+  showToast(
+    "Downloaded",
+    `All ${threadKeys.length} conversations downloaded`,
+    "success"
+  );
+}
+
+function downloadFile(content, filename) {
   const blob = new Blob([content], { type: "text/plain" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `conversation_${
-    AGENT_CONFIG[currentAgent].name
-  }_${threadId}_${Date.now()}.txt`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
-// Initialize text formatting
+// Text formatting initialization
 window.addEventListener("load", () => {
   const editor = document.getElementById("messageBody");
 
-  // Format button handler
   function handleFormat(command) {
     editor.focus();
     document.execCommand(command, false, null);
     updateToolbarState();
   }
 
-  // Format buttons
   document.getElementById("boldBtn").addEventListener("mousedown", (e) => {
     e.preventDefault();
     handleFormat("bold");
@@ -440,7 +592,6 @@ window.addEventListener("load", () => {
     handleFormat("insertOrderedList");
   });
 
-  // Undo/Redo
   document.getElementById("undoBtn").addEventListener("mousedown", (e) => {
     e.preventDefault();
     handleFormat("undo");
@@ -451,7 +602,6 @@ window.addEventListener("load", () => {
     handleFormat("redo");
   });
 
-  // Track formatting state
   editor.addEventListener("keyup", updateToolbarState);
   editor.addEventListener("mouseup", updateToolbarState);
   editor.addEventListener("focus", updateToolbarState);
@@ -473,12 +623,9 @@ window.addEventListener("load", () => {
           "active",
           document.queryCommandState("strikeThrough")
         );
-    } catch (e) {
-      // Ignore errors when no selection
-    }
+    } catch (e) {}
   }
 
-  // Handle autofill
   document.getElementById("autofillBtn").addEventListener("click", (e) => {
     e.preventDefault();
     if (
@@ -495,7 +642,6 @@ window.addEventListener("load", () => {
   });
 });
 
-// Autofill message presets
 const PRESET_MESSAGES = {
   vendor:
     "Dear Vendor,\n\nI hope this message finds you well. I am writing to inquire about your product catalog and current pricing. Could you please share the latest information?\n\nBest regards,\nStudent",
@@ -512,7 +658,6 @@ const PRESET_MESSAGES = {
     "Hello,\n\nI would like to explore potential collaboration opportunities for our brand promotion.\n\nBest regards,\nStudent",
 };
 
-// Make functions global
 window.showThreadView = showThreadView;
 window.sendReply = sendReply;
 window.downloadThread = downloadThread;

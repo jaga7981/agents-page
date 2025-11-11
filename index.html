@@ -8,6 +8,9 @@
 </head>
 <body>
 
+<!-- Toast Notification Container -->
+<div id="toastContainer" class="toast-container"></div>
+
 <div class="container">
   <!-- Left Sidebar - Agents List -->
   <div class="agents-sidebar">
@@ -65,7 +68,10 @@
   <div class="main-area">
     <div class="main-header">
       <h2 id="headerTitle">Vendor - Inbox</h2>
-      <button class="compose-btn" id="composeBtn">+ Compose</button>
+      <div class="header-actions">
+        <button class="download-all-btn" id="downloadAllBtn" title="Download All Conversations">📥 Download All</button>
+        <button class="compose-btn" id="composeBtn">+ Compose</button>
+      </div>
     </div>
 
     <div class="main-content">
