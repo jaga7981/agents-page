@@ -446,8 +446,11 @@ async function sendReply(threadId) {
       isUser: false,
     };
     thread.messages.push(agentReply);
+    // Increment unread count
+    thread.unread++;
 
     renderThread(threadId);
+    renderInbox(); // Re-render inbox to show badge
 
     setTimeout(() => {
       const threadContainer = document.getElementById("threadContent");
