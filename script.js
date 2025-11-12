@@ -48,9 +48,14 @@ Object.keys(AGENT_CONFIG).forEach((agent) => {
   conversations[agent] = {};
 });
 
-// Generate NEW session ID on every page load
-const SESSION_ID =
+// Generate BASE session ID on page load
+const BASE_SESSION_ID =
   "session_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+
+// Function to get agent-specific session ID
+function getSessionId(agent) {
+  return BASE_SESSION_ID + "_" + agent;
+}
 
 // DOM Elements
 const agentItems = document.querySelectorAll(".agent-item");
@@ -157,9 +162,10 @@ sendBtn.addEventListener("click", async () => {
 
   // Create UNIQUE thread ID for each new conversation (using timestamp)
   const threadId = "thread_" + Date.now();
+  const agent = currentAgent; // capture agent at send time to avoid race conditions
 
   // Create NEW thread
-  conversations[currentAgent][threadId] = {
+  conversations[agent][threadId] = {
     subject: subject,
     messages: [],
     unread: 0,
@@ -169,12 +175,12 @@ sendBtn.addEventListener("click", async () => {
   const userMessage = {
     id: Date.now(),
     from: "student@mokabura.com",
-    to: AGENT_CONFIG[currentAgent].email,
+    to: AGENT_CONFIG[agent].email,
     body: body,
     date: new Date().toISOString(),
     isUser: true,
   };
-  conversations[currentAgent][threadId].messages.push(userMessage);
+  conversations[agent][threadId].messages.push(userMessage);
 
   // Clear form
   subjectInput.value = "";
@@ -184,58 +190,85 @@ sendBtn.addEventListener("click", async () => {
   showInboxView();
   renderInbox();
 
-  showToast("Sending", "Your message is being sent...", "info");
-
-  // Send to n8n in background
-  sendToAgent(subject, body, threadId);
+  // Send to n8n in background (pass captured agent)
+  sendToAgent(subject, body, threadId, agent);
 });
 
 // Background sending
-async function sendToAgent(subject, body, threadId) {
+async function sendToAgent(
+  subject,
+  body,
+  threadId,
+  agentAtSend = currentAgent
+) {
+  // Inform user that sending started
+  showToast("Sending", "Your message is being sent...", "info");
+
   try {
-    const response = await fetch(AGENT_CONFIG[currentAgent].webhook, {
+    const response = await fetch(AGENT_CONFIG[agentAtSend].webhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         from: "student@mokabura.com",
-        to: AGENT_CONFIG[currentAgent].email,
+        to: AGENT_CONFIG[agentAtSend].email,
         subject: subject,
         message: body,
-        session_id: SESSION_ID,
+        session_id: getSessionId(agentAtSend),
       }),
     });
 
-    if (!response.ok) throw new Error("Failed to send");
+    if (!response.ok) {
+      let errText = "";
+      try {
+        errText = await response.text();
+      } catch (e) {}
+      throw new Error(
+        `HTTP ${response.status} ${response.statusText} ${errText}`
+      );
+    }
 
-    const data = await response.json();
+    let data = {};
+    try {
+      data = await response.json();
+    } catch (e) {
+      // ignore JSON parse errors and continue
+      data = {};
+    }
 
     // Add agent reply to SAME thread
     const agentReply = {
       id: Date.now() + 1,
-      from: AGENT_CONFIG[currentAgent].email,
+      from: AGENT_CONFIG[agentAtSend].email,
       to: "student@mokabura.com",
       body: data.reply || "No response received",
       date: new Date().toISOString(),
       isUser: false,
     };
-    conversations[currentAgent][threadId].messages.push(agentReply);
-
-    // Increment unread if not opened
-    if (!openedThreads.has(threadId)) {
-      conversations[currentAgent][threadId].unread++;
+    // Ensure thread exists
+    if (!conversations[agentAtSend][threadId]) {
+      conversations[agentAtSend][threadId] = {
+        subject: subject,
+        messages: [],
+        unread: 0,
+      };
     }
+    conversations[agentAtSend][threadId].messages.push(agentReply);
+
+    // Increment unread (show badge even if user currently has thread open)
+    conversations[agentAtSend][threadId].unread =
+      (conversations[agentAtSend][threadId].unread || 0) + 1;
 
     renderInbox();
     showToast(
       "Message Received",
-      `${AGENT_CONFIG[currentAgent].name} has replied`,
+      `${AGENT_CONFIG[agentAtSend].name} has replied`,
       "success"
     );
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error sending to agent:", error);
     showToast(
       "Send Failed",
-      "Failed to send message. Please try again.",
+      `Failed to send message: ${error.message}`,
       "error"
     );
   }
@@ -428,7 +461,7 @@ async function sendReply(threadId) {
         to: AGENT_CONFIG[currentAgent].email,
         subject: "Re: " + thread.subject,
         message: replyText,
-        session_id: SESSION_ID,
+        session_id: getSessionId(currentAgent),
       }),
     });
 
